@@ -1,55 +1,52 @@
 // Request
 // | MessageType | Id | Method | Params
- 
+
 // Response
 // | MessageType | Id | Result
- 
+
 // Error Response
 // | MessageType | Id | ErrorResult
- 
+
 // Notification
 // | MessageType | Method | Params
- 
- 
- 
+
 const generateRandomNumber = function () {
     return Math.round(Math.random() * 10000000);
 };
- 
+
 const isAsync = (fn: Function) => fn.constructor.name === 'AsyncFunction';
- 
+
 enum MessageType {
     Request,
     Notification,
     Response,
     ErrorResponse,
 }
- 
- 
+
 type MethodReturnType<Method> = Method extends (...args: any) => infer R
     ? R
     : any;
- 
+
 type MethodParameters<Method> = Method extends (...args: infer T) => any
     ? T
     : never;
- 
+
 type Prepend<I, T extends unknown[]> = [...T, I]
- 
+
 type AnyFunction = (...args: any) => any | Promise<any>
- 
+
 type KissRequest = [MessageType.Request, number, string, any[]]
 type KissResponse = [MessageType.Response, number, any]
 type KissNotification = [MessageType.Notification, number, any[]]
 type KissErrorResponse = [MessageType.ErrorResponse, number, { code: number, message: string }]
- 
+
 export type KissMessageRaw = KissRequest | KissResponse | KissNotification | KissErrorResponse
- 
+
 export class KissRpcError extends Error {
     code: number;
     message: string;
     id?: number
- 
+
     constructor(code: number, message: string, id: number = -1) {
         super();
         this.code = code;
@@ -57,7 +54,7 @@ export class KissRpcError extends Error {
         this.id = id;
     }
 }
- 
+
 export const KISS_RPC_ERRORS = {
     PARSE_ERROR: {
         code: 1000,
@@ -84,20 +81,20 @@ export const KISS_RPC_ERRORS = {
         message: 'Guard error'
     }
 };
- 
+
 /*const request = KissRpc.createRequest('login', [1, 23, '2'])
- 
+
 const response = KissRpc.createResponse(123, [{123: 123}])
- 
+
 const errResponse = KissRpc.createErrorResponse(123, 23, 'Some error');
- 
+
 const notification = KissRpc.createNotification('login', [1, 23, '2'])*/
- 
+
 /*const request = [MessageType.Request, 123, 'session.login', [{token: '123'}]];
 const response = [MessageType.Response, 123, true];
 const errorResponse = [MessageType.ErrorResponse, 123, {code: 123123, text: 'some error'}];
 const notification = [MessageType.Notification, 'session.started'];*/
- 
+
 type KissMessage = {
     type: MessageType.Request,
     id: number,
@@ -119,27 +116,27 @@ type KissMessage = {
         message: string
     }
 }
- 
+
 type KissRpcOptions = {
     requestTimeout: number,
 }
- 
+
 /*type DispatcherHandler = {
     fn: (...args: any) => any | Promise<any>
     isAsync: boolean
 }*/
- 
+
 class DispatcherHandler<Method extends keyof Handlers , Handlers, AppDataType = undefined> {
     fn: AnyFunction
-/*    guards: Array<(
-        ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>
-    ) => boolean> = []
-    paramsGuards: Array<(
-        ...params: MethodParameters<Handlers[Method]>
-    ) => boolean> = []
-    appDataGuards: Array<(
-        appData: AppDataType
-    ) => boolean> = []*/
+    /*    guards: Array<(
+            ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>
+        ) => boolean> = []
+        paramsGuards: Array<(
+            ...params: MethodParameters<Handlers[Method]>
+        ) => boolean> = []
+        appDataGuards: Array<(
+            appData: AppDataType
+        ) => boolean> = []*/
     guards: Array<AnyFunction> = []
     paramsGuards: Array<AnyFunction> = []
     appDataGuards: Array<(
@@ -167,31 +164,38 @@ class DispatcherHandler<Method extends keyof Handlers , Handlers, AppDataType = 
         return this
     }
 }
- 
+
 type KissRpcMethod = string
- 
+
 type KissRequestId = number
- 
+
 type KissPendingRequest<T> = {
     id: number,
     resolve: (value: MethodReturnType<T>) => void,
     reject: (value: unknown) => void
 }
- 
+
 export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataType = undefined> {
     requestTimeout: number
     toTransport: ((...args: AppDataType extends undefined ? [message: string] : [message: string, appData: AppDataType]) => void) | null = null
     dispatcher: Map<KissRpcMethod, DispatcherHandler<any,HandlersMethods, AppDataType>>
     pendingRequests: Map<KissRequestId, KissPendingRequest<keyof RequestMethods>>
- 
+
     appDataIsDefined(appData: AppDataType | undefined): appData is AppDataType {
         return appData !== undefined;
     }
- 
+
+    rejectPendingRequests(reason: string) {
+        for (const request of this.pendingRequests.values()) {
+            request.reject(reason);
+        }
+        this.pendingRequests.clear();
+    }
+
     static parse(raw: string): KissMessage {
- 
+
         let object;
- 
+
         try {
             object = JSON.parse(raw);
         } catch (error) {
@@ -200,16 +204,16 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                 KISS_RPC_ERRORS.PARSE_ERROR.message
             );
         }
- 
+
         if (!Array.isArray(object)) {
             throw new KissRpcError(
                 KISS_RPC_ERRORS.INVALID_REQUEST.code,
                 KISS_RPC_ERRORS.INVALID_REQUEST.message
             );
         }
- 
+
         let message: KissMessage;
- 
+
         switch (object[0]) {
             case MessageType.Request:
                 object = object as KissRequest;
@@ -219,7 +223,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                         KISS_RPC_ERRORS.INVALID_REQUEST.message
                     );
                 }
- 
+
                 if (typeof object[1] !== 'number') {
                     throw new KissRpcError(
                         KISS_RPC_ERRORS.INVALID_REQUEST.code,
@@ -240,7 +244,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                         KISS_RPC_ERRORS.INVALID_REQUEST.message
                     );
                 }
- 
+
                 return message = {
                     type: MessageType.Response,
                     id: object[1],
@@ -268,21 +272,21 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                     );
                 }
                 const err = object[2];
- 
+
                 if (!err || !err.code || !err.message) {
                     throw new KissRpcError(
                         KISS_RPC_ERRORS.INVALID_REQUEST.code,
                         KISS_RPC_ERRORS.INVALID_REQUEST.message
                     );
                 }
- 
+
                 if (typeof err.message !== 'string' || typeof err.code !== 'number') {
                     throw new KissRpcError(
                         KISS_RPC_ERRORS.INVALID_REQUEST.code,
                         KISS_RPC_ERRORS.INVALID_REQUEST.message
                     );
                 }
- 
+
                 return message = {
                     type: MessageType.ErrorResponse,
                     id: object[1],
@@ -295,45 +299,45 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                 );
         }
     }
- 
+
     registerToTransportCallback(cb: (...args: AppDataType extends undefined ? [message: string] : [message: string, appData: AppDataType]) => void
     ) {
         this.toTransport = cb;
     }
- 
+
     static createRequest(method: string, params: any[]): KissRequest {
         return [MessageType.Request, generateRandomNumber(), method, params];
     }
- 
+
     static createResponse(id: number, data: any): KissResponse {
         return [MessageType.Response, id, data];
     }
- 
+
     static createErrorResponse(id: number, errorCode: number, errorReason: string): KissErrorResponse {
         return [MessageType.ErrorResponse, id, {code: errorCode, message: errorReason}];
     }
- 
+
     static createNotification(method: string, params: any[]) {
         return [MessageType.Notification, method, params];
     }
- 
+
     constructor(options: KissRpcOptions) {
         this.requestTimeout = options.requestTimeout || 5000;
         this.dispatcher = new Map<KissRpcMethod, DispatcherHandler<any, HandlersMethods, AppDataType>>();
         this.pendingRequests = new Map<KissRequestId, KissPendingRequest<keyof RequestMethods>>();
     }
- 
+
     registerHandler<Method extends keyof HandlersMethods>(
         method: Method,
         handler: (
             ...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : Prepend<AppDataType, MethodParameters<HandlersMethods[Method]>>
-        ) => MethodReturnType<HandlersMethods[Method]>,
+        ) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>,
     ): DispatcherHandler<Method, HandlersMethods, AppDataType> {
         const dispatcherHandler = new DispatcherHandler<Method, HandlersMethods, AppDataType>(handler, method)
         this.dispatcher.set(method.toString(), dispatcherHandler);
         return dispatcherHandler
     }
- 
+
     request<Method extends keyof RequestMethods>(
         ...args: AppDataType extends undefined ?
             [method: Method, params: MethodParameters<RequestMethods[Method]>] :
@@ -361,7 +365,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
             })
         ])
     }
- 
+
     notify<Method extends keyof RequestMethods>(
         ...args: AppDataType extends undefined ?
             [method: Method, params: MethodParameters<RequestMethods[Method]>] :
@@ -372,13 +376,13 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
         // @ts-ignore
         this.toTransport(JSON.stringify(KissRpc.createNotification(method, params)), appData)
     }
- 
+
     callToTransport(message: KissMessageRaw, appData?: AppDataType) {
         if (!this.toTransport) return
         // @ts-ignore
         this.toTransport(JSON.stringify(message), appData)
     }
- 
+
     handleMessage(message: KissMessage, appData?: AppDataType) {
         switch (message.type) {
             case MessageType.Request:
@@ -404,11 +408,11 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                     if (handler.appDataGuards.length) {
                         if (this.appDataIsDefined(appData)) {
                             for (const guard of handler.appDataGuards) {
-                               guard.apply(null, [appData])
+                                guard.apply(null, [appData])
                             }
                         }
                     }
- 
+
                     let result
                     if (this.appDataIsDefined(appData)) {
                         result = handler.fn.apply(null, [...message.params, appData]);
@@ -417,7 +421,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                     }
                     // Notifications don't have any response
                     if (message.type === MessageType.Notification) return
- 
+
                     if (handler.isAsync) {
                         result.then((res: any) => {
                             this.callToTransport(KissRpc.createResponse(message.id, res), appData);
@@ -462,7 +466,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                 }
         }
     }
- 
+
     fromTransport(message: string, appData?: AppDataType) {
         try {
             const kissMessage = KissRpc.parse(message)
