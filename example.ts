@@ -1,8 +1,9 @@
-import {KissRpc} from "./index.ts";
+import {KissRpc} from "./index";
  
 type AppData = {
     sessionId: string,
     name: string,
+
     age: number,
     authenticated: boolean
 }

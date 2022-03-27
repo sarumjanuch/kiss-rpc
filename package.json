@@ -1,0 +1,29 @@
+{
+  "name": "kiss-rpc",
+  "version": "1.0.0",
+  "description": "Library for Typed RPC via Typescript heavily relying on general types in TypeScript",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sarumjanuch/kiss-rpc.git"
+  },
+  "keywords": [
+    "RPC",
+    "Typescript",
+    "IPC",
+    "Protocol"
+  ],
+  "author": "Eugene Voityuk",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sarumjanuch/kiss-rpc/issues"
+  },
+  "homepage": "https://github.com/sarumjanuch/kiss-rpc#readme",
+  "devDependencies": {
+    "typescript": "^4.6.3"
+  }
+}
