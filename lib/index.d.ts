@@ -6,7 +6,7 @@ declare enum MessageType {
 }
 declare type MethodReturnType<Method> = Method extends (...args: any) => infer R ? R : any;
 declare type MethodParameters<Method> = Method extends (...args: infer T) => any ? T : never;
-declare type Prepend<I, T extends unknown[]> = [...T, I];
+declare type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I];
 declare type AnyFunction = (...args: any) => any | Promise<any>;
 declare type KissRequest = [MessageType.Request, number, string, any[]];
 declare type KissResponse = [MessageType.Response, number, any];
@@ -80,7 +80,7 @@ declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppData
     isAsync: boolean;
     method: Method;
     constructor(fn: (...args: any) => any | Promise<any>, method: Method);
-    addGuard(fn: (...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>) => void): this;
+    addGuard(fn: (...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : AppendAppData<AppDataType, MethodParameters<Handlers[Method]>>) => void): this;
     addParamsGuard(fn: (...args: MethodParameters<Handlers[Method]>) => void): this;
     addAppDataGuard(fn: (appData: AppDataType) => void): this;
 }
@@ -105,7 +105,7 @@ export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods, A
     static createErrorResponse(id: number, errorCode: number, errorReason: string): KissErrorResponse;
     static createNotification(method: string, params: any[]): (string | any[] | MessageType)[];
     constructor(options: KissRpcOptions);
-    registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : Prepend<AppDataType, MethodParameters<HandlersMethods[Method]>>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandler<Method, HandlersMethods, AppDataType>;
+    registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : AppendAppData<AppDataType, MethodParameters<HandlersMethods[Method]>>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandler<Method, HandlersMethods, AppDataType>;
     request<Method extends keyof RequestMethods>(...args: AppDataType extends undefined ? [
         method: Method,
         params: MethodParameters<RequestMethods[Method]>
