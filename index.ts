@@ -31,7 +31,7 @@ type MethodParameters<Method> = Method extends (...args: infer T) => any
     ? T
     : never;
 
-type Prepend<I, T extends unknown[]> = [...T, I]
+type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I]
 
 type AnyFunction = (...args: any) => any | Promise<any>
 
@@ -150,7 +150,7 @@ class DispatcherHandler<Method extends keyof Handlers , Handlers, AppDataType = 
         this.method = method;
     }
     addGuard(fn: (
-        ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>
+        ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : AppendAppData<AppDataType, MethodParameters<Handlers[Method]>>
     ) => void): this {
         this.guards.push(fn);
         return this
@@ -330,7 +330,9 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
     registerHandler<Method extends keyof HandlersMethods>(
         method: Method,
         handler: (
-            ...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : Prepend<AppDataType, MethodParameters<HandlersMethods[Method]>>
+            ...params: AppDataType extends undefined ?
+                MethodParameters<HandlersMethods[Method]> :
+                AppendAppData<AppDataType, MethodParameters<HandlersMethods[Method]>>
         ) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>,
     ): DispatcherHandler<Method, HandlersMethods, AppDataType> {
         const dispatcherHandler = new DispatcherHandler<Method, HandlersMethods, AppDataType>(handler, method)
