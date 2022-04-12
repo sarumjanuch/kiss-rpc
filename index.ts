@@ -14,8 +14,6 @@ const generateRandomNumber = function () {
     return Math.round(Math.random() * 10000000);
 };
 
-const isAsync = (fn: Function) => fn.constructor.name === 'AsyncFunction';
-
 enum MessageType {
     Request,
     Notification,
@@ -23,13 +21,9 @@ enum MessageType {
     ErrorResponse,
 }
 
-type MethodReturnType<Method> = Method extends (...args: any) => infer R
-    ? R
-    : any;
+type MethodReturnType<Method> = Method extends (...args: any) => infer R ? R : any;
 
-type MethodParameters<Method> = Method extends (...args: infer T) => any
-    ? T
-    : never;
+type MethodParameters<Method> = Method extends (...args: infer T) => any ? T : never;
 
 type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I]
 
@@ -142,11 +136,9 @@ class DispatcherHandler<Method extends keyof Handlers , Handlers, AppDataType = 
     appDataGuards: Array<(
         appData: AppDataType
     ) => void> = []
-    isAsync: boolean
     method: Method
     constructor(fn: (...args: any) => any | Promise<any>, method: Method) {
         this.fn = fn;
-        this.isAsync = isAsync(fn);
         this.method = method;
     }
     addGuard(fn: (
@@ -424,7 +416,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                     // Notifications don't have any response
                     if (message.type === MessageType.Notification) return
 
-                    if (handler.isAsync) {
+                    if (result.then) {
                         result.then((res: any) => {
                             this.callToTransport(KissRpc.createResponse(message.id, res), appData);
                         }).catch(() => {
