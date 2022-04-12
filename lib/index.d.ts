@@ -77,7 +77,6 @@ declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppData
     guards: Array<AnyFunction>;
     paramsGuards: Array<AnyFunction>;
     appDataGuards: Array<(appData: AppDataType) => void>;
-    isAsync: boolean;
     method: Method;
     constructor(fn: (...args: any) => any | Promise<any>, method: Method);
     addGuard(fn: (...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : AppendAppData<AppDataType, MethodParameters<Handlers[Method]>>) => void): this;
