@@ -387,7 +387,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods , AppDataT
                         message.type === MessageType.Request ? message.id : -1,
                         KISS_RPC_ERRORS.METHOD_NOT_FOUND.code,
                         KISS_RPC_ERRORS.METHOD_NOT_FOUND.message
-                    ))
+                    ), appData);
                 try {
                     if (handler.guards.length) {
                         for (const guard of handler.guards) {
