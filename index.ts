@@ -111,6 +111,12 @@ type KissMessage = {
     }
 }
 
+enum Guards {
+    Guard,
+    ParamGuard,
+    AppData
+}
+
 type KissRpcOptions = {
     requestTimeout: number,
 }
