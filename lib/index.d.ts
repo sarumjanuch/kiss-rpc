@@ -14,13 +14,15 @@ declare type KissNotification = [MessageType.Notification, number, any[]];
 declare type KissErrorResponse = [MessageType.ErrorResponse, number, {
     code: number;
     message: string;
+    errorMessage?: string;
 }];
 export declare type KissMessageRaw = KissRequest | KissResponse | KissNotification | KissErrorResponse;
 export declare class KissRpcError extends Error {
     code: number;
     message: string;
     id?: number;
-    constructor(code: number, message: string, id?: number);
+    errorMessage?: string;
+    constructor(code: number, message: string, id?: number, errorMessage?: string);
 }
 export declare const KISS_RPC_ERRORS: {
     PARSE_ERROR: {
@@ -47,6 +49,10 @@ export declare const KISS_RPC_ERRORS: {
         code: number;
         message: string;
     };
+    APPLICATION_ERROR: {
+        code: number;
+        message: string;
+    };
 };
 declare type KissMessage = {
     type: MessageType.Request;
@@ -67,16 +73,30 @@ declare type KissMessage = {
     error: {
         code: number;
         message: string;
+        errorMessage?: string;
     };
+};
+declare const enum GuardType {
+    Guard = 0,
+    ParamGuard = 1,
+    AppData = 2
+}
+declare type Guards = {
+    type: GuardType.Guard;
+    fn: AnyFunction;
+} | {
+    type: GuardType.ParamGuard;
+    fn: AnyFunction;
+} | {
+    type: GuardType.AppData;
+    fn: AnyFunction;
 };
 declare type KissRpcOptions = {
     requestTimeout: number;
 };
 declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
     fn: AnyFunction;
-    guards: Array<AnyFunction>;
-    paramsGuards: Array<AnyFunction>;
-    appDataGuards: Array<(appData: AppDataType) => void>;
+    guards: Array<Guards>;
     method: Method;
     constructor(fn: (...args: any) => any | Promise<any>, method: Method);
     addGuard(fn: (...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : AppendAppData<AppDataType, MethodParameters<Handlers[Method]>>) => void): this;
@@ -101,7 +121,7 @@ export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods, A
     registerToTransportCallback(cb: (...args: AppDataType extends undefined ? [message: string] : [message: string, appData: AppDataType]) => void): void;
     static createRequest(method: string, params: any[]): KissRequest;
     static createResponse(id: number, data: any): KissResponse;
-    static createErrorResponse(id: number, errorCode: number, errorReason: string): KissErrorResponse;
+    static createErrorResponse(id: number, errorCode: number, errorReason: string, errorMessage?: string): KissErrorResponse;
     static createNotification(method: string, params: any[]): (string | any[] | MessageType)[];
     constructor(options: KissRpcOptions);
     registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : AppendAppData<AppDataType, MethodParameters<HandlersMethods[Method]>>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandler<Method, HandlersMethods, AppDataType>;
