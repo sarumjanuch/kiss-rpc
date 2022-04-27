@@ -144,7 +144,7 @@ type KissRpcOptions = {
     isAsync: boolean
 }*/
 
-class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
+export class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
     fn: AnyFunction
     /*    guards: Array<(
             ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>

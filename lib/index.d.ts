@@ -94,7 +94,7 @@ declare type Guards = {
 declare type KissRpcOptions = {
     requestTimeout: number;
 };
-declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
+export declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
     fn: AnyFunction;
     guards: Array<Guards>;
     method: Method;
