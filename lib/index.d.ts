@@ -1,22 +1,22 @@
-declare enum MessageType {
+export declare const enum MessageType {
     Request = 0,
     Notification = 1,
     Response = 2,
     ErrorResponse = 3
 }
-declare type MethodReturnType<Method> = Method extends (...args: any) => infer R ? R : any;
-declare type MethodParameters<Method> = Method extends (...args: infer T) => any ? T : never;
-declare type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I];
-declare type AnyFunction = (...args: any) => any | Promise<any>;
-declare type KissRequest = [MessageType.Request, number, string, any[]];
-declare type KissResponse = [MessageType.Response, number, any];
-declare type KissNotification = [MessageType.Notification, number, any[]];
-declare type KissErrorResponse = [MessageType.ErrorResponse, number, {
+type MethodReturnType<Method> = Method extends (...args: any) => infer R ? R : any;
+type MethodParameters<Method> = Method extends (...args: infer T) => any ? T : never;
+type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I];
+type AnyFunction = (...args: any) => any | Promise<any>;
+export type KissRequest = [MessageType.Request, number, string, any[]];
+export type KissResponse = [MessageType.Response, number, any];
+export type KissNotification = [MessageType.Notification, number, any[]];
+export type KissErrorResponse = [MessageType.ErrorResponse, number, {
     code: number;
     message: string;
     errorMessage?: string;
 }];
-export declare type KissMessageRaw = KissRequest | KissResponse | KissNotification | KissErrorResponse;
+export type KissMessageRaw = KissRequest | KissResponse | KissNotification | KissErrorResponse;
 export declare class KissRpcError extends Error {
     code: number;
     message: string;
@@ -54,7 +54,7 @@ export declare const KISS_RPC_ERRORS: {
         message: string;
     };
 };
-declare type KissMessage = {
+export type KissMessage = {
     type: MessageType.Request;
     id: number;
     method: string;
@@ -81,7 +81,7 @@ declare const enum GuardType {
     ParamGuard = 1,
     AppData = 2
 }
-declare type Guards = {
+type Guards = {
     type: GuardType.Guard;
     fn: AnyFunction;
 } | {
@@ -91,8 +91,15 @@ declare type Guards = {
     type: GuardType.AppData;
     fn: AnyFunction;
 };
-declare type KissRpcOptions = {
+type KissRpcOptions = {
     requestTimeout: number;
+};
+type KissRpcMethod = string;
+type KissRequestId = number;
+type KissPendingRequest<T> = {
+    id: number;
+    resolve: (value: MethodReturnType<T>) => void;
+    reject: (value: unknown) => void;
 };
 export declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
     fn: AnyFunction;
@@ -103,13 +110,6 @@ export declare class DispatcherHandler<Method extends keyof Handlers, Handlers, 
     addParamsGuard(fn: (...args: MethodParameters<Handlers[Method]>) => void): this;
     addAppDataGuard(fn: (appData: AppDataType) => void): this;
 }
-declare type KissRpcMethod = string;
-declare type KissRequestId = number;
-declare type KissPendingRequest<T> = {
-    id: number;
-    resolve: (value: MethodReturnType<T>) => void;
-    reject: (value: unknown) => void;
-};
 export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataType = undefined> {
     requestTimeout: number;
     toTransport: ((...args: AppDataType extends undefined ? [message: string] : [message: string, appData: AppDataType]) => void) | null;

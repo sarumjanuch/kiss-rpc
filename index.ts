@@ -14,7 +14,7 @@ const generateRandomNumber = function () {
     return Math.round(Math.random() * 10000000);
 };
 
-enum MessageType {
+export const enum MessageType {
     Request,
     Notification,
     Response,
@@ -29,10 +29,10 @@ type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I]
 
 type AnyFunction = (...args: any) => any | Promise<any>
 
-type KissRequest = [MessageType.Request, number, string, any[]]
-type KissResponse = [MessageType.Response, number, any]
-type KissNotification = [MessageType.Notification, number, any[]]
-type KissErrorResponse = [MessageType.ErrorResponse, number, { code: number, message: string, errorMessage?: string }]
+export type KissRequest = [MessageType.Request, number, string, any[]]
+export type KissResponse = [MessageType.Response, number, any]
+export type KissNotification = [MessageType.Notification, number, any[]]
+export type KissErrorResponse = [MessageType.ErrorResponse, number, { code: number, message: string, errorMessage?: string }]
 
 export type KissMessageRaw = KissRequest | KissResponse | KissNotification | KissErrorResponse
 
@@ -95,7 +95,7 @@ const response = [MessageType.Response, 123, true];
 const errorResponse = [MessageType.ErrorResponse, 123, {code: 123123, text: 'some error'}];
 const notification = [MessageType.Notification, 'session.started'];*/
 
-type KissMessage = {
+export type KissMessage = {
     type: MessageType.Request,
     id: number,
     method: string,
@@ -139,22 +139,18 @@ type KissRpcOptions = {
     requestTimeout: number,
 }
 
-/*type DispatcherHandler = {
-    fn: (...args: any) => any | Promise<any>
-    isAsync: boolean
-}*/
+type KissRpcMethod = string
+
+type KissRequestId = number
+
+type KissPendingRequest<T> = {
+    id: number,
+    resolve: (value: MethodReturnType<T>) => void,
+    reject: (value: unknown) => void
+}
 
 export class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
     fn: AnyFunction
-    /*    guards: Array<(
-            ...params: AppDataType extends undefined ? MethodParameters<Handlers[Method]> : Prepend<AppDataType, MethodParameters<Handlers[Method]>>
-        ) => boolean> = []
-        paramsGuards: Array<(
-            ...params: MethodParameters<Handlers[Method]>
-        ) => boolean> = []
-        appDataGuards: Array<(
-            appData: AppDataType
-        ) => boolean> = []*/
     guards: Array<Guards> = []
     method: Method
 
@@ -188,16 +184,6 @@ export class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataT
         });
         return this
     }
-}
-
-type KissRpcMethod = string
-
-type KissRequestId = number
-
-type KissPendingRequest<T> = {
-    id: number,
-    resolve: (value: MethodReturnType<T>) => void,
-    reject: (value: unknown) => void
 }
 
 export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataType = undefined> {
@@ -458,14 +444,12 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataTy
                         result = handler.fn.apply(null, message.params);
                     }
                     // Notifications don't have any response
-                    if (message.type === MessageType.Notification) return
+                    if (message.type === MessageType.Notification) return;
 
                     if (result.then) {
                         result.then((res: any) => {
                             this.callToTransport(KissRpc.createResponse(message.id, res), appData);
                         }).catch((e: Error) => {
-                            // @ts-ignore
-                            if (message.type === MessageType.Notification) return
                             this.callToTransport(KissRpc.createErrorResponse(
                                 message.id,
                                 KISS_RPC_ERRORS.APPLICATION_ERROR.code,
@@ -520,7 +504,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataTy
             if (e instanceof KissRpcError) {
                 if (!this.toTransport) return
                 // @ts-ignore
-                this.toTransport(JSON.stringify(KissRpc.createErrorResponse(kissMessage.id || -1, e.code, e.message)));
+                this.toTransport(JSON.stringify(KissRpc.createErrorResponse(kissMessage?.id || -1, e.code, e.message, e.errorMessage || '')));
             }
         }
     }
