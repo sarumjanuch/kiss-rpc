@@ -1,6 +1,6 @@
 {
   "name": "kiss-rpc",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Library for Typed RPC via Typescript heavily relying on general types in TypeScript",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
