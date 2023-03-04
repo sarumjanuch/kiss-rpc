@@ -497,8 +497,9 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataTy
     }
 
     fromTransport(message: string, appData?: AppDataType) {
+        let kissMessage: KissMessage;
         try {
-            const kissMessage = KissRpc.parse(message)
+            kissMessage = KissRpc.parse(message)
             this.handleMessage(kissMessage, appData)
         } catch (e) {
             if (e instanceof KissRpcError) {
