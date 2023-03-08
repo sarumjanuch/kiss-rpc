@@ -1,56 +1,140 @@
-import { strict as assert } from 'assert';
-import { test } from 'node:test';
-import { promisify } from 'util';
+import {strict as assert} from 'assert';
+import {test} from 'node:test';
 
-import { KissRpc, KissRpcError, MessageType, KissMessage, KISS_RPC_ERRORS } from './index';
+import {
+    KissRpc,
+    KissRpcError,
+    MessageType,
+    KissMessage,
+    KissRequest,
+    KissErrorResponse,
+    KissResponse,
+    KissNotification,
+    getMessageType,
+    getMessageMethod,
+    getMessageId,
+    getMessageParams,
+    getMessageResult,
+    getMessageError,
+    KISS_RPC_ERRORS, isResponse, isRequest, isErrorResponse, isMessage, isNotification
+} from './index';
 
-test('KissRpc.parse() should correctly parse a valid Request', () => {
-    const rawRequest = JSON.stringify([MessageType.Request, 1, 'testMethod', [1, 2, 3]]);
-    const expectedRequest: KissMessage = {
-        type: MessageType.Request,
-        id: 1,
-        method: 'testMethod',
-        params: [1, 2, 3],
-    };
-    const parsedRequest = KissRpc.parse(rawRequest);
+test('getMessageType returns correct type', () => {
+    const request: KissRequest = [MessageType.Request, 1, 'method', []];
+    const response: KissResponse = [MessageType.Response, 1, 'result'];
+    const errorResponse: KissErrorResponse = [MessageType.ErrorResponse, 1, {code: 1, message: 'error'}];
+    const notification: KissNotification = [MessageType.Notification, 'method', []];
 
-    assert.deepStrictEqual(parsedRequest, expectedRequest);
+    assert.equal(getMessageType(request), MessageType.Request);
+    assert.equal(getMessageType(response), MessageType.Response);
+    assert.equal(getMessageType(errorResponse), MessageType.ErrorResponse);
+    assert.equal(getMessageType(notification), MessageType.Notification);
 });
 
-test('KissRpc.parse() should correctly parse a valid Response', () => {
-    const rawResponse = JSON.stringify([MessageType.Response, 1, 'testResult']);
-    const expectedResponse: KissMessage = {
-        type: MessageType.Response,
-        id: 1,
-        result: 'testResult',
-    };
-    const parsedResponse = KissRpc.parse(rawResponse);
+test('getMessageMethod returns correct method', () => {
+    const request: KissRequest = [MessageType.Request, 1, 'method', []];
+    const notification: KissNotification = [MessageType.Notification, 'method', []];
 
-    assert.deepStrictEqual(parsedResponse, expectedResponse);
+    assert.equal(getMessageMethod(request), 'method');
+    assert.equal(getMessageMethod(notification), 'method');
 });
 
-test('KissRpc.parse() should correctly parse a valid Notification', () => {
-    const rawNotification = JSON.stringify([MessageType.Notification, 'testMethod', [1, 2, 3]]);
-    const expectedNotification: KissMessage = {
-        type: MessageType.Notification,
-        method: 'testMethod',
-        params: [1, 2, 3],
-    };
-    const parsedNotification = KissRpc.parse(rawNotification);
+test('getMessageParams returns correct params', () => {
+    const request: KissRequest = [MessageType.Request, 1, 'method', ['param1', 'param2']];
+    const notification: KissNotification = [MessageType.Notification, 'method', ['param1', 'param2']];
 
-    assert.deepStrictEqual(parsedNotification, expectedNotification);
+    assert.deepEqual(getMessageParams(request), ['param1', 'param2']);
+    assert.deepEqual(getMessageParams(notification), ['param1', 'param2']);
 });
 
-test('KissRpc.parse() should correctly parse a valid ErrorResponse', () => {
-    const rawErrorResponse = JSON.stringify([MessageType.ErrorResponse, 1, { code: 100, message: 'testError', errorMessage: 'Test error message' }]);
-    const expectedErrorResponse: KissMessage = {
-        type: MessageType.ErrorResponse,
-        id: 1,
-        error: { code: 100, message: 'testError', errorMessage: 'Test error message' },
-    };
-    const parsedErrorResponse = KissRpc.parse(rawErrorResponse);
+test('getMessageId returns correct id', () => {
+    const request: KissRequest = [MessageType.Request, 1, 'method', []];
+    const response: KissResponse = [MessageType.Response, 1, 'result'];
+    const errorResponse: KissErrorResponse = [MessageType.ErrorResponse, 1, {code: 1, message: 'error'}];
 
-    assert.deepStrictEqual(parsedErrorResponse, expectedErrorResponse);
+    assert.equal(getMessageId(request), 1);
+    assert.equal(getMessageId(response), 1);
+    assert.equal(getMessageId(errorResponse), 1);
+});
+
+test('getMessageResult returns correct result', () => {
+    const response: KissResponse = [MessageType.Response, 1, 'result'];
+    const errorResponse: KissErrorResponse = [MessageType.ErrorResponse, 1, {code: 1, message: 'error'}];
+
+    assert.equal(getMessageResult(response), 'result');
+    assert.deepEqual(getMessageResult(errorResponse), {code: 1, message: 'error'});
+});
+
+test('getMessageError returns correct error', () => {
+    const errorResponse: KissErrorResponse = [MessageType.ErrorResponse, 1, {code: 1, message: 'error'}];
+
+    assert.deepEqual(getMessageError(errorResponse), {code: 1, message: 'error'});
+});
+
+test('isRequest returns true if message is request', () => {
+    const request: KissRequest = [MessageType.Request, 1, 'method', []];
+
+    assert.equal(isRequest(request), true);
+    assert.equal(isRequest([MessageType.Response, 1, 'result']), false);
+});
+
+test('isResponse returns true if message is response', () => {
+    const response: KissResponse = [MessageType.Response, 1, 'result'];
+
+    assert.equal(isResponse(response), true);
+    assert.equal(isResponse([MessageType.Request, 1, 'method', []]), false);
+});
+
+test('isErrorResponse returns true if message is error response', () => {
+    const errorResponse: KissErrorResponse = KissRpc.createErrorResponse(MessageType.ErrorResponse, 1, 'error');
+    assert.equal(isErrorResponse(errorResponse), true);
+    assert.equal(isErrorResponse([MessageType.Request, 1, 'method', []]), false);
+});
+
+test('isNotification returns true if message is notification', () => {
+    const notification: KissNotification = KissRpc.createNotification('method', []);
+    assert.equal(isNotification(notification), true);
+    assert.equal(isNotification([MessageType.Request, 1, 'method', []]), false);
+});
+
+test('isMessage should return true for valid KissMessage', () => {
+    const message: KissMessage = [MessageType.Request, 1, 'myMethod', []];
+    assert.ok(isMessage(message));
+});
+
+test('isMessage should return false for invalid KissMessage', () => {
+    const message: any = ['invalid message'];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for array with invalid length', () => {
+    const message: any = [MessageType.Request];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for invalid message type', () => {
+    const message: any = [-1, 1, 'myMethod', []];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for invalid request message', () => {
+    const message: any = [MessageType.Request, 'invalid id', 123, []];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for invalid response message', () => {
+    const message: any = [MessageType.Response, 'invalid id', 'invalid result'];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for invalid error response message', () => {
+    const message: any = [MessageType.ErrorResponse, 'invalid id', { code: 1, message: 'invalid error' }];
+    assert.ok(!isMessage(message));
+});
+
+test('isMessage should return false for invalid notification message', () => {
+    const message: any = [MessageType.Notification, 123];
+    assert.ok(!isMessage(message));
 });
 
 test('KissRpc.parse() should throw a KissRpcError with code KISS_RPC_ERRORS.PARSE_ERROR.code when parsing an invalid JSON message', () => {
@@ -94,14 +178,14 @@ test('KissRpc', (t) => {
             'test.add_numbers': (a: number, b: number) => number;
             'test.add_string': (a: string, b: string) => string;
             'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
-            'test.return_object': (a: {[key:string]: string}) => {[key:string]: string};
+            'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
         };
 
         type ServerRpcMethods = {
             'test.add_numbers': (a: number, b: number) => number;
             'test.add_string': (a: string, b: string) => string;
             'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
-            'test.return_object': (a: {[key:string]: string}) => {[key:string]: string};
+            'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
             'test.error': () => void;
             'test.notification': () => void;
         };
@@ -115,14 +199,14 @@ test('KissRpc', (t) => {
         });
 
         client.registerToTransportCallback((message) => {
-            server.fromTransport(message, {sessionId: '123', name:'eugen', age: 12, authenticated: true})
+            server.fromTransport(message, {sessionId: '123', name: 'eugen', age: 12, authenticated: true});
         })
 
-        server.registerToTransportCallback((message, {sessionId}) => {
-            client.fromTransport(message)
+        server.registerToTransportCallback((message, appData) => {
+            client.fromTransport(message);
         });
 
-        test('should handle request from client to server and return response', async () => {
+        test('should handle request from client to server and return response numbers', async () => {
             const expectedResult = 1 + 1;
             server.registerHandler('test.add_numbers', (a, b) => {
                 return a + b;
@@ -133,7 +217,7 @@ test('KissRpc', (t) => {
             assert.strictEqual(result, expectedResult);
         });
 
-        test('should handle request from client to server and return response', async () => {
+        test('should handle request from client to server and return response strings', async () => {
             const expectedResult = 'aasd' + 'fasdfa';
             server.registerHandler('test.add_string', (a, b) => {
                 return a + b;
@@ -144,9 +228,9 @@ test('KissRpc', (t) => {
             assert.strictEqual(result, expectedResult);
         });
 
-        test('should handle request from client to server and return response', async () => {
+        test('should handle request from client to server and return response array', async () => {
             const expectedResult = ['Hello', 'World', 123, true];
-            server.registerHandler('test.return_array', (a, b,c, d) => {
+            server.registerHandler('test.return_array', (a, b, c, d) => {
                 return [a, b, c, d];
             }).addAppDataGuard(isAuthenticatedGuard);
 
@@ -159,8 +243,8 @@ test('KissRpc', (t) => {
         });
 
         test('should handle request with proper AppData', async () => {
-            const expectedAppData = { sessionId: '123', name:'eugen', age: 12, authenticated: true };
-            server.registerHandler('test.return_array', (a, b,c, d, appData) => {
+            const expectedAppData = {sessionId: '123', name: 'eugen', age: 12, authenticated: true};
+            server.registerHandler('test.return_array', (a, b, c, d, appData) => {
                 assert.strictEqual(appData?.age, expectedAppData.age);
                 assert.strictEqual(appData?.name, expectedAppData.name);
                 assert.strictEqual(appData?.sessionId, expectedAppData.sessionId);
@@ -169,25 +253,30 @@ test('KissRpc', (t) => {
             }).addAppDataGuard(isAuthenticatedGuard);
         });
 
-        test('should handle request from client to server and return response', async () => {
-            const expectedResult = { hello: 'world' }
+        test('should handle request from client to server and return response object', async () => {
+            const expectedResult = {hello: 'world'}
 
             server.registerHandler('test.return_object', (a) => {
                 return a;
             }).addAppDataGuard(isAuthenticatedGuard);
 
-            const result = await client.request('test.return_object', [{ hello: 'world' }]);
+            const result = await client.request('test.return_object', [{hello: 'world'}]);
 
             assert.strictEqual(result?.hello, expectedResult.hello);
         });
 
-        test('should handle request from server to client and return response', async () => {
+        test('should handle request from server to client and return response numbers', async () => {
             const expectedResult = 1 + 2;
             client.registerHandler('test.add_numbers', (a: number, b: number) => {
                 return a + b;
             });
 
-            const result = await server.request('test.add_numbers', [1, 2], { sessionId: '123', name:'eugen', age: 12, authenticated: true });
+            const result = await server.request('test.add_numbers', [1, 2], {
+                sessionId: '123',
+                name: 'eugen',
+                age: 12,
+                authenticated: true
+            });
 
             assert.strictEqual(result, expectedResult);
         });
@@ -210,7 +299,8 @@ test('KissRpc', (t) => {
         test('should handle notification on server', async () => {
             const tracker = new assert.CallTracker();
 
-            server.registerHandler('test.notification', tracker.calls(() => {}));
+            server.registerHandler('test.notification', tracker.calls(() => {
+            }));
             await client.notify('test.notification', []);
             tracker.verify();
         });
