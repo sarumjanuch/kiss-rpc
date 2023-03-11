@@ -162,6 +162,7 @@ There are three types of guards:
 - **Guard** - a function callback function that will be called with params and appData.
 - **ParamGuard** - a function callback function that will be called with params only.
 - **AppDataGuard** - a function callback function that will be called with appData only.
+
 If any of guards throws an error, the error will be returned as ErrorResult, and handler will not be executed.
 
 Guards can also be used as interceptors, can be useful for logging.
@@ -215,9 +216,13 @@ function validateUser(user: User) {
 // registerHandler retuns an instance of handler, which can be used to register guards.
 server.registerHandler('add', (a, b, user) => {
   return a + b
-}).registerGuard(validateUser)
-  .registerGuard(validateParams)
-  .registerGuard(logRequest);
+}).addGuard(validateUser)
+  .addParamsGuard(validateParams)
+  .addAppDataGuard(logRequest);
 
 const result = await client.request('add', [1, 2]);
 ```
+
+## Error Handling
+KISS-RPC provides an Error class that can be used to return custom errors. You can throw any error from the handler, and it will be returned as ErrorResult.
+All the errors from the library are instances of KissRpcError class. If you throw from handler, its message will be wrapped in KissRpcError as errorMessage.
