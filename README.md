@@ -32,21 +32,21 @@ Library provides two simple classes in order to exchange messages that are hooks
 - **instance.handleMessage** allows to pass a message received from the other side to the library.
 
 ```typescript
-type ServerRpcMethods = {
-	add: (a: number, b: number) => number;
+type ServerRpcMethods = { 
+  add: (a: number, b: number) => number;
 };
 
 const client = new KissRpc<ServerRpcMethods>({
-	requestTimeout: 5000
+  requestTimeout: 5000
 });
 
 client.registerToTransportCallback((message) => {
-	console.log(message);
-	// Logic to send message to transport.
+  console.log(message);
+  // Logic to send message to transport.
 });
 
 myTransport.on('message', (message : string) => {
-	client.fromTransport(message);
+  client.fromTransport(message);
 });
 
 ```
