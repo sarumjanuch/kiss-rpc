@@ -123,7 +123,7 @@ export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods, A
     static createResponse(id: number, data: any): KissResponse;
     static createErrorResponse(id: number, errorCode: number, errorReason: string, errorMessage?: string): KissErrorResponse;
     static createNotification(method: string, params: any[]): KissNotification;
-    constructor(options: KissRpcOptions);
+    constructor(options?: KissRpcOptions);
     private appDataIsDefined;
     private rejectPendingRequests;
     private resetDispatcher;

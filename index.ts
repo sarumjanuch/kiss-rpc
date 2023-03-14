@@ -302,8 +302,8 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataTy
         return [MessageType.Notification, method, params];
     }
 
-    constructor(options: KissRpcOptions) {
-        this.requestTimeout = options.requestTimeout || 5000;
+    constructor(options?: KissRpcOptions) {
+        this.requestTimeout = options?.requestTimeout || 5000;
         this.dispatcher = new Map<KissMethod, DispatcherHandler<any, HandlersMethods, AppDataType>>();
         this.pendingRequests = new Map<KissRequestId, KissPendingRequest<keyof RequestMethods>>();
     }
