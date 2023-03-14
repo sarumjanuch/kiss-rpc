@@ -115,7 +115,6 @@ export function getMessageId(message: KissMessage): KissRequestId {
 export function getMessageResult(message: KissMessage): any {
     switch (getMessageType(message)) {
         case MessageType.Response:
-            return message[2];
         case MessageType.ErrorResponse:
             return message[2];
         default:
@@ -150,7 +149,7 @@ export function isNotification(message: KissMessage): message is KissNotificatio
 
 export function isMessage(message: any): message is KissMessage {
     if (!Array.isArray(message)) return false;
-    if (message.length > 4 || message.length < 3) return false;
+    if (message.length > 4 || message.length < 2) return false;
     if (typeof message[0] !== 'number') return false;
     if (message[0] < 0 || message[0] > 3) return false;
 
@@ -450,7 +449,7 @@ export class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataTy
                     // Notifications don't have any response
                     if (isNotification(message)) return;
 
-                    if (result.then) {
+                    if (result && result.then) {
                         result.then((res: any) => {
                             this.callToTransport(KissRpc.createResponse(getMessageId(message), res), appData);
                         }).catch((e: Error) => {

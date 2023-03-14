@@ -304,5 +304,18 @@ test('KissRpc', (t) => {
             await client.notify('test.notification', []);
             tracker.verify();
         });
+
+        test('should handle request to method that return void', async () => {
+            const tracker = new assert.CallTracker();
+
+            try {
+                server.registerHandler('test.notification', tracker.calls(() => {
+                }));
+                await client.request('test.notification', []);
+                tracker.verify();
+            } catch (error) {
+                assert.fail('This should not throw', error);
+            }
+        });
     });
 });
