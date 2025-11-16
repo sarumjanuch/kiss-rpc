@@ -6,16 +6,7 @@ export declare const enum MessageType {
 }
 type MethodReturnType<Method> = Method extends (...args: any) => infer R ? R : any;
 type MethodParameters<Method> = Method extends (...args: infer T) => any ? T : never;
-type ToTransportCb<AppDataType> = AppDataType extends undefined ? (message: string) => void : (message: string, appData: AppDataType) => void;
-type FromTransportParams<AppDataType> = AppDataType extends undefined ? [
-    message: string
-] : [
-    message: string,
-    appData: AppDataType
-];
-type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I];
 type AnyFunction = (...args: any) => any | Promise<any>;
-type GuardFn<Method extends keyof Handlers, Handlers, AppDataType> = AppDataType extends undefined ? (...args: MethodParameters<Handlers[Method]>) => void : (...args: [...MethodParameters<Handlers[Method]>, AppDataType]) => void;
 type KissMethod = string;
 type KissRequestId = number;
 type KissParams = any[];
@@ -24,21 +15,6 @@ type KissError = {
     message: string;
     errorMessage?: string;
 };
-declare const enum GuardType {
-    Guard = 0,
-    ParamGuard = 1,
-    AppData = 2
-}
-type Guards = {
-    type: GuardType.Guard;
-    fn: AnyFunction;
-} | {
-    type: GuardType.ParamGuard;
-    fn: AnyFunction;
-} | {
-    type: GuardType.AppData;
-    fn: AnyFunction;
-};
 type KissRpcOptions = {
     requestTimeout: number;
 };
@@ -46,6 +22,7 @@ type KissPendingRequest<T> = {
     id: number;
     resolve: (value: MethodReturnType<T>) => void;
     reject: (value: unknown) => void;
+    timestamp: number;
 };
 export type KissRequest = [MessageType.Request, KissRequestId, KissMethod, KissParams];
 export type KissResponse = [MessageType.Response, KissRequestId, any];
@@ -104,7 +81,61 @@ export declare const KISS_RPC_ERRORS: {
         message: string;
     };
 };
-export declare class DispatcherHandler<Method extends keyof Handlers, Handlers, AppDataType = undefined> {
+export declare function parseMessage(raw: string): KissMessage;
+export declare function createRequest(method: string, params: any[] | undefined): KissRequest;
+export declare function createResponse(id: number, data: any): KissResponse;
+export declare function createErrorResponse(id: number, errorCode: number, errorReason: string, errorMessage?: string): KissErrorResponse;
+export declare function createNotification(method: string, params: any[]): KissNotification;
+export declare class DispatcherHandler<Method extends keyof Handlers, Handlers> {
+    fn: AnyFunction;
+    guards: Array<AnyFunction>;
+    method: Method;
+    constructor(fn: AnyFunction, method: Method);
+    addParamsGuard(fn: (...args: MethodParameters<Handlers[Method]>) => void): this;
+}
+export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods> {
+    requestTimeout: number;
+    toTransport: ((message: string) => void) | null;
+    dispatcher: Map<KissMethod, DispatcherHandler<any, HandlersMethods>>;
+    pendingRequests: Map<KissRequestId, KissPendingRequest<keyof RequestMethods>>;
+    private timeoutCheckInterval;
+    static parse: typeof parseMessage;
+    static createRequest: typeof createRequest;
+    static createResponse: typeof createResponse;
+    static createErrorResponse: typeof createErrorResponse;
+    static createNotification: typeof createNotification;
+    constructor(options?: KissRpcOptions);
+    private rejectPendingRequests;
+    private resetDispatcher;
+    private startTimeoutChecker;
+    private stopTimeoutChecker;
+    registerToTransportCallback(cb: (message: string) => void): void;
+    registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: MethodParameters<HandlersMethods[Method]>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandler<Method, HandlersMethods>;
+    request<Method extends keyof RequestMethods>(method: Method, params: MethodParameters<RequestMethods[Method]>): Promise<MethodReturnType<RequestMethods[Method]>>;
+    notify<Method extends keyof RequestMethods>(method: Method, params: MethodParameters<RequestMethods[Method]>): void;
+    callToTransport(message: KissMessage): void;
+    handleMessage(message: KissMessage): void;
+    fromTransport(rawMessage: string): void;
+    clean(reason: string): void;
+}
+declare const enum GuardType {
+    Guard = 0,
+    ParamGuard = 1,
+    AppData = 2
+}
+type Guards = {
+    type: GuardType.Guard;
+    fn: AnyFunction;
+} | {
+    type: GuardType.ParamGuard;
+    fn: AnyFunction;
+} | {
+    type: GuardType.AppData;
+    fn: AnyFunction;
+};
+type AppendAppData<I, T extends unknown[]> = [...args: T, appData: I];
+type GuardFn<Method extends keyof Handlers, Handlers, AppDataType> = (...args: [...MethodParameters<Handlers[Method]>, AppDataType]) => void;
+export declare class DispatcherHandlerWithAppData<Method extends keyof Handlers, Handlers, AppDataType> {
     fn: AnyFunction;
     guards: Array<Guards>;
     method: Method;
@@ -113,41 +144,29 @@ export declare class DispatcherHandler<Method extends keyof Handlers, Handlers, 
     addParamsGuard(fn: (...args: MethodParameters<Handlers[Method]>) => void): this;
     addAppDataGuard(fn: (appData: AppDataType) => void): this;
 }
-export declare class KissRpc<RequestMethods, HandlersMethods = RequestMethods, AppDataType = undefined> {
+export declare class KissRpcWithAppData<AppDataType, RequestMethods, HandlersMethods = RequestMethods> {
     requestTimeout: number;
-    toTransport: ToTransportCb<AppDataType> | null;
-    dispatcher: Map<KissMethod, DispatcherHandler<any, HandlersMethods, AppDataType>>;
+    toTransport: ((message: string, appData: AppDataType) => void) | null;
+    dispatcher: Map<KissMethod, DispatcherHandlerWithAppData<any, HandlersMethods, AppDataType>>;
     pendingRequests: Map<KissRequestId, KissPendingRequest<keyof RequestMethods>>;
-    static parse(raw: string): KissMessage;
-    static createRequest(method: string, params: any[] | undefined): KissRequest;
-    static createResponse(id: number, data: any): KissResponse;
-    static createErrorResponse(id: number, errorCode: number, errorReason: string, errorMessage?: string): KissErrorResponse;
-    static createNotification(method: string, params: any[]): KissNotification;
+    private timeoutCheckInterval;
+    static parse: typeof parseMessage;
+    static createRequest: typeof createRequest;
+    static createResponse: typeof createResponse;
+    static createErrorResponse: typeof createErrorResponse;
+    static createNotification: typeof createNotification;
     constructor(options?: KissRpcOptions);
-    private appDataIsDefined;
     private rejectPendingRequests;
     private resetDispatcher;
-    registerToTransportCallback(cb: ToTransportCb<AppDataType>): void;
-    registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: AppDataType extends undefined ? MethodParameters<HandlersMethods[Method]> : AppendAppData<AppDataType, MethodParameters<HandlersMethods[Method]>>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandler<Method, HandlersMethods, AppDataType>;
-    request<Method extends keyof RequestMethods>(...args: AppDataType extends undefined ? [
-        method: Method,
-        params: MethodParameters<RequestMethods[Method]>
-    ] : [
-        method: Method,
-        params: MethodParameters<RequestMethods[Method]>,
-        appData: AppDataType
-    ]): Promise<MethodReturnType<RequestMethods[Method]>>;
-    notify<Method extends keyof RequestMethods>(...args: AppDataType extends undefined ? [
-        method: Method,
-        params: MethodParameters<RequestMethods[Method]>
-    ] : [
-        method: Method,
-        params: MethodParameters<RequestMethods[Method]>,
-        appData: AppDataType
-    ]): void;
-    callToTransport(message: KissMessage, appData?: AppDataType): void;
-    handleMessage(message: KissMessage, appData?: AppDataType): void;
-    fromTransport(...args: FromTransportParams<AppDataType>): void;
+    private startTimeoutChecker;
+    private stopTimeoutChecker;
+    registerToTransportCallback(cb: (message: string, appData: AppDataType) => void): void;
+    registerHandler<Method extends keyof HandlersMethods>(method: Method, handler: (...params: AppendAppData<AppDataType, MethodParameters<HandlersMethods[Method]>>) => MethodReturnType<HandlersMethods[Method]> | Promise<MethodReturnType<HandlersMethods[Method]>>): DispatcherHandlerWithAppData<Method, HandlersMethods, AppDataType>;
+    request<Method extends keyof RequestMethods>(method: Method, params: MethodParameters<RequestMethods[Method]>, appData: AppDataType): Promise<MethodReturnType<RequestMethods[Method]>>;
+    notify<Method extends keyof RequestMethods>(method: Method, params: MethodParameters<RequestMethods[Method]>, appData: AppDataType): void;
+    callToTransport(message: KissMessage, appData: AppDataType): void;
+    handleMessage(message: KissMessage, appData: AppDataType): void;
+    fromTransport(rawMessage: string, appData: AppDataType): void;
     clean(reason: string): void;
 }
 export {};

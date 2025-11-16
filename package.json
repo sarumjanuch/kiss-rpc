@@ -1,22 +1,31 @@
 {
   "name": "kiss-rpc",
-  "version": "1.1.5",
-  "description": "Library for Typed RPC via Typescript heavily relying on general types in TypeScript",
+  "version": "2.0.0",
+  "description": "High-performance, type-safe RPC library for TypeScript/JavaScript. Transport-agnostic with exceptional throughput (1M+ ops/sec).",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
     "test": "ts-node test.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "benchmark": "ts-node benchmark.ts",
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sarumjanuch/kiss-rpc.git"
   },
   "keywords": [
-    "RPC",
-    "Typescript",
-    "IPC",
-    "Protocol"
+    "rpc",
+    "typescript",
+    "type-safe",
+    "high-performance",
+    "websocket",
+    "ipc",
+    "microservices",
+    "transport-agnostic",
+    "json-rpc",
+    "remote-procedure-call",
+    "electron",
+    "message-passing"
   ],
   "author": "Eugene Voityuk",
   "license": "MIT",
@@ -25,6 +34,7 @@
   },
   "homepage": "https://github.com/sarumjanuch/kiss-rpc#readme",
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "ts-node": "^10.9.1",
     "typescript": "^4.6.3"
   },

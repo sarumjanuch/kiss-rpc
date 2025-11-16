@@ -3,6 +3,7 @@ import {test} from 'node:test';
 
 import {
     KissRpc,
+    KissRpcWithAppData,
     KissRpcError,
     MessageType,
     KissMessage,
@@ -16,7 +17,8 @@ import {
     getMessageParams,
     getMessageResult,
     getMessageError,
-    KISS_RPC_ERRORS, isResponse, isRequest, isErrorResponse, isMessage, isNotification
+    KISS_RPC_ERRORS, isResponse, isRequest, isErrorResponse, isMessage, isNotification,
+    parseMessage, createErrorResponse, createNotification
 } from './index';
 
 test('getMessageType returns correct type', () => {
@@ -86,13 +88,13 @@ test('isResponse returns true if message is response', () => {
 });
 
 test('isErrorResponse returns true if message is error response', () => {
-    const errorResponse: KissErrorResponse = KissRpc.createErrorResponse(MessageType.ErrorResponse, 1, 'error');
+    const errorResponse: KissErrorResponse = createErrorResponse(MessageType.ErrorResponse, 1, 'error');
     assert.equal(isErrorResponse(errorResponse), true);
     assert.equal(isErrorResponse([MessageType.Request, 1, 'method', []]), false);
 });
 
 test('isNotification returns true if message is notification', () => {
-    const notification: KissNotification = KissRpc.createNotification('method', []);
+    const notification: KissNotification = createNotification('method', []);
     assert.equal(isNotification(notification), true);
     assert.equal(isNotification([MessageType.Request, 1, 'method', []]), false);
 });
@@ -137,31 +139,31 @@ test('isMessage should return false for invalid notification message', () => {
     assert.ok(!isMessage(message));
 });
 
-test('KissRpc.parse() should throw a KissRpcError with code KISS_RPC_ERRORS.PARSE_ERROR.code when parsing an invalid JSON message', () => {
+test('parseMessage() should throw a KissRpcError with code KISS_RPC_ERRORS.PARSE_ERROR.code when parsing an invalid JSON message', () => {
     const invalidJson = '{ invalid json }';
 
-    assert.throws(() => KissRpc.parse(invalidJson), (error: KissRpcError) => {
+    assert.throws(() => parseMessage(invalidJson), (error: KissRpcError) => {
         return error.code === KISS_RPC_ERRORS.PARSE_ERROR.code && error.message === KISS_RPC_ERRORS.PARSE_ERROR.message;
     });
 });
 
-test('KissRpc.parse() should throw a KissRpcError with code KISS_RPC_ERRORS.INVALID_REQUEST.code when parsing an invalid Request message', () => {
+test('parseMessage() should throw a KissRpcError with code KISS_RPC_ERRORS.INVALID_REQUEST.code when parsing an invalid Request message', () => {
     const invalidRequest = JSON.stringify([MessageType.Request, 1, 2, [1, 2, 3]]);
 
-    assert.throws(() => KissRpc.parse(invalidRequest), (error: KissRpcError) => {
+    assert.throws(() => parseMessage(invalidRequest), (error: KissRpcError) => {
         return error.code === KISS_RPC_ERRORS.INVALID_REQUEST.code && error.message === KISS_RPC_ERRORS.INVALID_REQUEST.message;
     });
 });
 
-test('KissRpc.parse() should throw a KissRpcError with code KISS_RPC_ERRORS.INVALID_REQUEST.code when parsing an invalid Response message', () => {
+test('parseMessage() should throw a KissRpcError with code KISS_RPC_ERRORS.INVALID_REQUEST.code when parsing an invalid Response message', () => {
     const invalidResponse = JSON.stringify([MessageType.Response, '1', 'testResult']);
 
-    assert.throws(() => KissRpc.parse(invalidResponse), (error: KissRpcError) => {
+    assert.throws(() => parseMessage(invalidResponse), (error: KissRpcError) => {
         return error.code === KISS_RPC_ERRORS.INVALID_REQUEST.code && error.message === KISS_RPC_ERRORS.INVALID_REQUEST.message;
     });
 });
 
-test('KissRpc', (t) => {
+test('KissRpc', async (t) => {
     type AppData = {
         sessionId: string;
         name: string;
@@ -173,7 +175,7 @@ test('KissRpc', (t) => {
         if (!appData.authenticated) throw new Error('Unauthenticated session');
     };
 
-    t.test('with ClientRpcMethods and ServerRpcMethods', () => {
+    await t.test('with ClientRpcMethods and ServerRpcMethods', async () => {
         type ClientRpcMethods = {
             'test.add_numbers': (a: number, b: number) => number;
             'test.add_string': (a: string, b: string) => string;
@@ -194,7 +196,7 @@ test('KissRpc', (t) => {
             requestTimeout: 5000,
         });
 
-        const server = new KissRpc<ClientRpcMethods, ServerRpcMethods, AppData>({
+        const server = new KissRpcWithAppData<AppData, ClientRpcMethods, ServerRpcMethods>({
             requestTimeout: 5000,
         });
 
@@ -206,9 +208,9 @@ test('KissRpc', (t) => {
             client.fromTransport(message);
         });
 
-        test('should handle request from client to server and return response numbers', async () => {
+        await t.test('should handle request from client to server and return response numbers', async () => {
             const expectedResult = 1 + 1;
-            server.registerHandler('test.add_numbers', (a, b) => {
+            server.registerHandler('test.add_numbers', (a, b, appData) => {
                 return a + b;
             }).addAppDataGuard(isAuthenticatedGuard);
 
@@ -217,9 +219,9 @@ test('KissRpc', (t) => {
             assert.strictEqual(result, expectedResult);
         });
 
-        test('should handle request from client to server and return response strings', async () => {
+        await t.test('should handle request from client to server and return response strings', async () => {
             const expectedResult = 'aasd' + 'fasdfa';
-            server.registerHandler('test.add_string', (a, b) => {
+            server.registerHandler('test.add_string', (a, b, appData) => {
                 return a + b;
             }).addAppDataGuard(isAuthenticatedGuard);
 
@@ -228,9 +230,9 @@ test('KissRpc', (t) => {
             assert.strictEqual(result, expectedResult);
         });
 
-        test('should handle request from client to server and return response array', async () => {
+        await t.test('should handle request from client to server and return response array', async () => {
             const expectedResult = ['Hello', 'World', 123, true];
-            server.registerHandler('test.return_array', (a, b, c, d) => {
+            server.registerHandler('test.return_array', (a, b, c, d, appData) => {
                 return [a, b, c, d];
             }).addAppDataGuard(isAuthenticatedGuard);
 
@@ -242,21 +244,23 @@ test('KissRpc', (t) => {
             assert.strictEqual(result[3], expectedResult[3]);
         });
 
-        test('should handle request with proper AppData', async () => {
+        await t.test('should handle request with proper AppData', async () => {
             const expectedAppData = {sessionId: '123', name: 'eugen', age: 12, authenticated: true};
             server.registerHandler('test.return_array', (a, b, c, d, appData) => {
-                assert.strictEqual(appData?.age, expectedAppData.age);
-                assert.strictEqual(appData?.name, expectedAppData.name);
-                assert.strictEqual(appData?.sessionId, expectedAppData.sessionId);
-                assert.strictEqual(appData?.authenticated, expectedAppData.authenticated);
+                assert.strictEqual(appData.age, expectedAppData.age);
+                assert.strictEqual(appData.name, expectedAppData.name);
+                assert.strictEqual(appData.sessionId, expectedAppData.sessionId);
+                assert.strictEqual(appData.authenticated, expectedAppData.authenticated);
                 return [a, b, c, d];
             }).addAppDataGuard(isAuthenticatedGuard);
+
+            await client.request('test.return_array', ['Hello', 'World', 123, true]);
         });
 
-        test('should handle request from client to server and return response object', async () => {
+        await t.test('should handle request from client to server and return response object', async () => {
             const expectedResult = {hello: 'world'}
 
-            server.registerHandler('test.return_object', (a) => {
+            server.registerHandler('test.return_object', (a, appData) => {
                 return a;
             }).addAppDataGuard(isAuthenticatedGuard);
 
@@ -265,7 +269,7 @@ test('KissRpc', (t) => {
             assert.strictEqual(result?.hello, expectedResult.hello);
         });
 
-        test('should handle request from server to client and return response numbers', async () => {
+        await t.test('should handle request from server to client and return response numbers', async () => {
             const expectedResult = 1 + 2;
             client.registerHandler('test.add_numbers', (a: number, b: number) => {
                 return a + b;
@@ -281,9 +285,9 @@ test('KissRpc', (t) => {
             assert.strictEqual(result, expectedResult);
         });
 
-        test('should handle error on server side and reject the client request', async () => {
+        await t.test('should handle error on server side and reject the client request', async () => {
             const errorMessage = 'Test error';
-            server.registerHandler('test.error', () => {
+            server.registerHandler('test.error', (appData) => {
                 throw new Error(errorMessage);
             });
 
@@ -296,20 +300,22 @@ test('KissRpc', (t) => {
             }
         });
 
-        test('should handle notification on server', async () => {
+        await t.test('should handle notification on server', async () => {
             const tracker = new assert.CallTracker();
 
-            server.registerHandler('test.notification', tracker.calls(() => {
+            server.registerHandler('test.notification', tracker.calls((appData) => {
             }));
-            await client.notify('test.notification', []);
+            client.notify('test.notification', []);
+            // Give time for notification to process
+            await new Promise(resolve => setImmediate(resolve));
             tracker.verify();
         });
 
-        test('should handle request to method that return void', async () => {
+        await t.test('should handle request to method that return void', async () => {
             const tracker = new assert.CallTracker();
 
             try {
-                server.registerHandler('test.notification', tracker.calls(() => {
+                server.registerHandler('test.notification', tracker.calls((appData) => {
                 }));
                 await client.request('test.notification', []);
                 tracker.verify();
