@@ -692,7 +692,7 @@ export class KissRpcWithAppData<AppDataType, RequestMethods, HandlersMethods = R
                         KISS_RPC_ERRORS.METHOD_NOT_FOUND.message
                     ), appData);
 
-                const params = messageType === MessageType.Request ? message[3] : message[2];
+                const params = messageType === MessageType.Request ? (message[3] || []) : message[2];
 
                 // Create params with appData once - reuse for guards and handler
                 const paramsLength = params.length;

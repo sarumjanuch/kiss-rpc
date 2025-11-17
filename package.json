@@ -1,13 +1,13 @@
 {
   "name": "kiss-rpc",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "High-performance, type-safe RPC library for TypeScript/JavaScript. Transport-agnostic with exceptional throughput (1M+ ops/sec).",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
     "test": "ts-node test.ts",
     "build": "tsc",
-    "benchmark": "ts-node benchmark.ts",
+    "benchmark": "ts-node benchmark.ts"
   },
   "repository": {
     "type": "git",

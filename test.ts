@@ -163,7 +163,7 @@ test('parseMessage() should throw a KissRpcError with code KISS_RPC_ERRORS.INVAL
     });
 });
 
-test('KissRpc', async (t) => {
+test('KissRpc with ClientRpcMethods and ServerRpcMethods', async () => {
     type AppData = {
         sessionId: string;
         name: string;
@@ -175,101 +175,96 @@ test('KissRpc', async (t) => {
         if (!appData.authenticated) throw new Error('Unauthenticated session');
     };
 
-    await t.test('with ClientRpcMethods and ServerRpcMethods', async () => {
-        type ClientRpcMethods = {
-            'test.add_numbers': (a: number, b: number) => number;
-            'test.add_string': (a: string, b: string) => string;
-            'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
-            'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
-        };
+    type ClientRpcMethods = {
+        'test.add_numbers': (a: number, b: number) => number;
+        'test.add_string': (a: string, b: string) => string;
+        'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
+        'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
+    };
 
-        type ServerRpcMethods = {
-            'test.add_numbers': (a: number, b: number) => number;
-            'test.add_string': (a: string, b: string) => string;
-            'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
-            'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
-            'test.error': () => void;
-            'test.notification': () => void;
-        };
+    type ServerRpcMethods = {
+        'test.add_numbers': (a: number, b: number) => number;
+        'test.add_string': (a: string, b: string) => string;
+        'test.return_array': (a: string, b: string, c: number, d: boolean) => any[];
+        'test.return_object': (a: { [key: string]: string }) => { [key: string]: string };
+        'test.error': () => void;
+        'test.notification': () => void;
+    };
 
-        const client = new KissRpc<ServerRpcMethods, ClientRpcMethods>({
-            requestTimeout: 5000,
-        });
+    const client = new KissRpc<ServerRpcMethods, ClientRpcMethods>({
+        requestTimeout: 5000,
+    });
 
-        const server = new KissRpcWithAppData<AppData, ClientRpcMethods, ServerRpcMethods>({
-            requestTimeout: 5000,
-        });
+    const server = new KissRpcWithAppData<AppData, ClientRpcMethods, ServerRpcMethods>({
+        requestTimeout: 5000,
+    });
 
-        client.registerToTransportCallback((message) => {
-            server.fromTransport(message, {sessionId: '123', name: 'eugen', age: 12, authenticated: true});
-        })
+    client.registerToTransportCallback((message) => {
+        server.fromTransport(message, {sessionId: '123', name: 'eugen', age: 12, authenticated: true});
+    })
 
-        server.registerToTransportCallback((message, appData) => {
-            client.fromTransport(message);
-        });
+    server.registerToTransportCallback((message, appData) => {
+        client.fromTransport(message);
+    });
 
-        await t.test('should handle request from client to server and return response numbers', async () => {
-            const expectedResult = 1 + 1;
-            server.registerHandler('test.add_numbers', (a, b, appData) => {
-                return a + b;
-            }).addAppDataGuard(isAuthenticatedGuard);
+    {
+        const expectedResult = 1 + 1;
+        server.registerHandler('test.add_numbers', (a, b, appData) => {
+            return a + b;
+        }).addAppDataGuard(isAuthenticatedGuard);
 
-            const result = await client.request('test.add_numbers', [1, 1]);
+        const result = await client.request('test.add_numbers', [1, 1]);
+        assert.strictEqual(result, expectedResult);
+    }
 
-            assert.strictEqual(result, expectedResult);
-        });
+    {
+        const expectedResult = 'aasd' + 'fasdfa';
+        server.registerHandler('test.add_string', (a, b, appData) => {
+            return a + b;
+        }).addAppDataGuard(isAuthenticatedGuard);
 
-        await t.test('should handle request from client to server and return response strings', async () => {
-            const expectedResult = 'aasd' + 'fasdfa';
-            server.registerHandler('test.add_string', (a, b, appData) => {
-                return a + b;
-            }).addAppDataGuard(isAuthenticatedGuard);
+        const result = await client.request('test.add_string', ['aasd', 'fasdfa']);
+        assert.strictEqual(result, expectedResult);
+    }
 
-            const result = await client.request('test.add_string', ['aasd', 'fasdfa']);
+    {
+        const expectedResult = ['Hello', 'World', 123, true];
+        server.registerHandler('test.return_array', (a, b, c, d, appData) => {
+            return [a, b, c, d];
+        }).addAppDataGuard(isAuthenticatedGuard);
 
-            assert.strictEqual(result, expectedResult);
-        });
+        const result = await client.request('test.return_array', ['Hello', 'World', 123, true]);
+        assert.strictEqual(result[0], expectedResult[0]);
+        assert.strictEqual(result[1], expectedResult[1]);
+        assert.strictEqual(result[2], expectedResult[2]);
+        assert.strictEqual(result[3], expectedResult[3]);
+    }
 
-        await t.test('should handle request from client to server and return response array', async () => {
-            const expectedResult = ['Hello', 'World', 123, true];
-            server.registerHandler('test.return_array', (a, b, c, d, appData) => {
-                return [a, b, c, d];
-            }).addAppDataGuard(isAuthenticatedGuard);
+    {
+        const expectedAppData = {sessionId: '123', name: 'eugen', age: 12, authenticated: true};
+        server.registerHandler('test.return_array', (a, b, c, d, appData) => {
+            assert.strictEqual(appData.age, expectedAppData.age);
+            assert.strictEqual(appData.name, expectedAppData.name);
+            assert.strictEqual(appData.sessionId, expectedAppData.sessionId);
+            assert.strictEqual(appData.authenticated, expectedAppData.authenticated);
+            return [a, b, c, d];
+        }).addAppDataGuard(isAuthenticatedGuard);
 
-            const result = await client.request('test.return_array', ['Hello', 'World', 123, true]);
+        await client.request('test.return_array', ['Hello', 'World', 123, true]);
+    }
 
-            assert.strictEqual(result[0], expectedResult[0]);
-            assert.strictEqual(result[1], expectedResult[1]);
-            assert.strictEqual(result[2], expectedResult[2]);
-            assert.strictEqual(result[3], expectedResult[3]);
-        });
+    {
+        const expectedResult = {hello: 'world'}
 
-        await t.test('should handle request with proper AppData', async () => {
-            const expectedAppData = {sessionId: '123', name: 'eugen', age: 12, authenticated: true};
-            server.registerHandler('test.return_array', (a, b, c, d, appData) => {
-                assert.strictEqual(appData.age, expectedAppData.age);
-                assert.strictEqual(appData.name, expectedAppData.name);
-                assert.strictEqual(appData.sessionId, expectedAppData.sessionId);
-                assert.strictEqual(appData.authenticated, expectedAppData.authenticated);
-                return [a, b, c, d];
-            }).addAppDataGuard(isAuthenticatedGuard);
+        server.registerHandler('test.return_object', (a, appData) => {
+            return a;
+        }).addAppDataGuard(isAuthenticatedGuard);
 
-            await client.request('test.return_array', ['Hello', 'World', 123, true]);
-        });
+        const result = await client.request('test.return_object', [{hello: 'world'}]);
+        assert.strictEqual(result.hello, expectedResult.hello);
+    }
 
-        await t.test('should handle request from client to server and return response object', async () => {
-            const expectedResult = {hello: 'world'}
-
-            server.registerHandler('test.return_object', (a, appData) => {
-                return a;
-            }).addAppDataGuard(isAuthenticatedGuard);
-
-            const result = await client.request('test.return_object', [{hello: 'world'}]);
-
-            assert.strictEqual(result?.hello, expectedResult.hello);
-        });
-
-        await t.test('should handle request from server to client and return response numbers', async () => {
+    {
             const expectedResult = 1 + 2;
             client.registerHandler('test.add_numbers', (a: number, b: number) => {
                 return a + b;
@@ -283,45 +278,45 @@ test('KissRpc', async (t) => {
             });
 
             assert.strictEqual(result, expectedResult);
+    }
+
+    {
+        const errorMessage = 'Test error';
+        server.registerHandler('test.error', (appData) => {
+            throw new Error(errorMessage);
         });
 
-        await t.test('should handle error on server side and reject the client request', async () => {
-            const errorMessage = 'Test error';
-            server.registerHandler('test.error', (appData) => {
-                throw new Error(errorMessage);
+        try {
+            await client.request('test.error', []);
+            assert.fail('The promise should have been rejected');
+        } catch (error) {
+            assert(error instanceof KissRpcError);
+            assert.strictEqual(error.errorMessage, errorMessage);
+        }
+    }
+
+    {
+        let called = false;
+
+        server.registerHandler('test.notification', (appData) => {
+            called = true;
+        });
+        client.notify('test.notification', []);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.strictEqual(called, true, 'Notification handler should have been called');
+    }
+
+    {
+        let called = false;
+
+        try {
+            server.registerHandler('test.notification', (appData) => {
+                called = true;
             });
-
-            try {
-                await client.request('test.error', []);
-                assert.fail('The promise should have been rejected');
-            } catch (error) {
-                assert(error instanceof KissRpcError);
-                assert.strictEqual(error.errorMessage, errorMessage);
-            }
-        });
-
-        await t.test('should handle notification on server', async () => {
-            const tracker = new assert.CallTracker();
-
-            server.registerHandler('test.notification', tracker.calls((appData) => {
-            }));
-            client.notify('test.notification', []);
-            // Give time for notification to process
-            await new Promise(resolve => setImmediate(resolve));
-            tracker.verify();
-        });
-
-        await t.test('should handle request to method that return void', async () => {
-            const tracker = new assert.CallTracker();
-
-            try {
-                server.registerHandler('test.notification', tracker.calls((appData) => {
-                }));
-                await client.request('test.notification', []);
-                tracker.verify();
-            } catch (error) {
-                assert.fail('This should not throw', error);
-            }
-        });
-    });
+            await client.request('test.notification', []);
+            assert.strictEqual(called, true, 'Request handler should have been called');
+        } catch (error) {
+            assert.fail('This should not throw', error);
+        }
+    }
 });
